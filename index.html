@@ -21,6 +21,7 @@
   --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
   color-scheme:light;
 }
+[hidden]{display:none!important;}
 html,body{height:100%;margin:0;overflow:hidden;background:#b8def0;}
 body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
 #game{position:fixed;inset:0;}
@@ -45,6 +46,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
 .stats b{font-size:30px;font-weight:600;line-height:1;}
 .stats span{font-family:var(--body);font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.62;font-weight:700;}
 .newbest{display:inline-block;margin-top:12px;background:var(--fox);color:#fff;border-radius:999px;padding:4px 12px;font-family:var(--display);font-size:14px;font-weight:600;}
+.hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 32px);box-sizing:border-box;background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;line-height:1.4;text-align:center;box-shadow:0 2px 10px var(--shadow);pointer-events:none;}
+.hint kbd{font-family:var(--display);font-weight:600;font-size:12px;background:var(--cream);border:1px solid rgba(36,48,31,.25);border-bottom-width:2px;border-radius:6px;padding:1px 6px;}
 @media (max-width:420px){.chip{font-size:16px;padding:6px 11px;gap:10px}.btn-icon{width:32px;height:32px}}
 </style>
 </head>
@@ -64,7 +67,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
       <h1>Fox Hill Run</h1>
       <p>Run through the hills from morning sun to starlight. Jump the logs, rocks and stumps, and pick up berries on the way.</p>
       <button class="play" id="playBtn" type="button">Start running</button>
-      <p class="keys">Space, &uarr; or tap to jump. Hold for a higher jump.</p>
     </div>
   </div>
   <div class="overlay" id="over" hidden>
@@ -77,7 +79,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
       </div>
       <div id="newBest" class="newbest" hidden>New best!</div>
       <div><button class="play" id="againBtn" type="button">Run again</button></div>
-      <p class="keys">or press Space</p>
     </div>
   </div>
   <div class="overlay" id="paused" hidden>
@@ -86,6 +87,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
       <button class="play" id="resumeBtn" type="button">Keep running</button>
     </div>
   </div>
+  <div class="hint" id="hint"><kbd>Space</kbd> <kbd>&uarr;</kbd> or tap to jump &middot; hold for a higher jump</div>
 </div>
 <script>
 (() => {
@@ -181,7 +183,10 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   }
 
   // ---------- flow ----------
-  function show(id) { ["start", "over", "paused"].forEach((o) => { $(o).hidden = o !== id; }); }
+  function show(id) {
+    ["start", "over", "paused"].forEach((o) => { $(o).hidden = o !== id; });
+    $("hint").hidden = !(id === "start" || id === "over");
+  }
   function startRun() {
     obstacles = []; berries = []; parts = [];
     Object.assign(st, { mode: "play", run: 0, speed: 380, time: 0, berries: 0, score: 0, p: 0.06, shake: 0, buffer: 0 });
