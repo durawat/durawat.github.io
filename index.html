@@ -47,6 +47,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
 .stats div{display:flex;flex-direction:column;align-items:center;gap:2px;}
 .stats b{font-size:30px;font-weight:600;line-height:1;}
 .stats span{font-family:var(--body);font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.62;font-weight:700;}
+.rotate{margin:12px 0 0;font-size:13px;font-weight:700;color:var(--accent);}
 .newbest{display:inline-block;margin-top:12px;background:var(--warm);color:#fff;border-radius:999px;padding:4px 12px;font-family:var(--display);font-size:14px;font-weight:600;}
 .toast{position:absolute;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 16px;font-family:var(--display);font-weight:600;font-size:15px;box-shadow:0 2px 10px var(--shadow);pointer-events:none;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;}
 .speed{margin-top:18px;text-align:left;}
@@ -87,6 +88,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
           <div class="speed-scale"><span>Stroll</span><span>Fast</span></div>
         </div>
       </div>
+      <p class="rotate" id="rotateTip" hidden>Tip: turn your phone sideways for a wider trail with more to jump.</p>
       <button class="play" id="playBtn" type="button">Start the hunt</button>
     </div>
   </div>
@@ -255,6 +257,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     const sc = { idx, up, segs, len, trail: null, obstacles: [], treats: [], feature: null, decor: [], lilies: [], brook: null, bridges: [], seed: idx * 17.3 + 5 };
     const lines = segs.filter((s) => s.kind === "line");
     const v = sceneSpeed(idx), spacing = 150 + 0.62 * Math.max(LEAP, v);
+    const tall = LANES >= 5;   // upright phone: short levels, so use tighter (still fair) clear zones
 
     // an optional tunnel or boardwalk on one level
     if (idx > 0 && Math.random() < 0.4) {
@@ -278,8 +281,9 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
       for (let tries = 0; tries < 20 && hi > lo; tries++) {
         const drift = Math.min(220, (hi - lo) * 0.45) * (Math.random() < 0.5 ? -1 : 1);
         const xTop = rand(Math.max(lo, lo - drift), Math.min(hi, hi - drift));
-        const brook = { xTop, xBot: xTop + drift, y0: topLine - 30, y1: RIVER, ph: Math.random() * TAU, amp: Math.min(18, (hi - lo) * 0.06) };
-        const bridges = lines.map((l) => { const x = brookAt(brook, curveY(l, brookAt(brook, l.y))); return { lane: l.lane, x, y: curveY(l, x) }; });
+        const srcY = tall ? LANE0 - 2.5 * LS : topLine - 30;
+        const brook = { xTop, xBot: xTop + drift, y0: srcY, y1: RIVER, ph: Math.random() * TAU, amp: Math.min(18, (hi - lo) * 0.06) };
+        const bridges = lines.filter((l) => l.y > srcY).map((l) => { const x = brookAt(brook, curveY(l, brookAt(brook, l.y))); return { lane: l.lane, x, y: curveY(l, x) }; });
         const f = sc.feature;
         if (bridges.some((b) => b.x < lo - 20 || b.x > hi + 20)) continue;
         if (f && bridges.some((b) => b.lane === f.lane && b.x > f.xa - 90 && b.x < f.xb + 90)) continue;
@@ -291,9 +295,9 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     for (const ln of lines) {
       const first = idx === 0 && ln.lane === 0;
       // room to react after entering a screen or coming round a bend grows with speed
-      const uA = first ? 260 : ln.lane === 0 ? Math.max(280, 0.95 * v) : Math.max(80, 0.42 * v);
+      const uA = first ? 260 : ln.lane === 0 ? (tall ? Math.max(200, 0.7 * v) : Math.max(280, 0.95 * v)) : Math.max(80, (tall ? 0.26 : 0.42) * v);
       const jumpLen = 0.62 * Math.max(LEAP, v) + 40;
-      const uB = ln.len - (ln.lane === LANES - 1 ? 110 : 80);
+      const uB = ln.len - (ln.lane === LANES - 1 ? (tall ? 80 : 110) : tall ? 45 : 80);
       let u = uA + rand(0, 90);
       while (u < uB) {
         const [type, w0, h0] = types[(Math.random() * types.length) | 0], k = rand(0.85, 1.12);
@@ -303,7 +307,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
         if (f && f.lane === ln.lane && u + w > f.u0 - jumpLen && u < f.u1 + clearAfter) { u = f.u1 + clearAfter; continue; }
         const br = sc.bridges.find((b) => b.lane === ln.lane);   // not on, or just after, a footbridge
         if (br) {
-          const ub = (br.x - ln.x0) * ln.dir, clearB = Math.max(150, 0.4 * v);   // ~0.4 s to react after the bridge
+          const ub = (br.x - ln.x0) * ln.dir, clearB = tall ? Math.max(100, 0.28 * v) : Math.max(150, 0.4 * v);   // ~0.4 s to react after the bridge
           if (u + w > ub - 33 - 40 && u < ub + 33 + clearB) { u = ub + 33 + clearB; continue; }
         }
         const ox = ln.x0 + ln.dir * (u + w / 2);
@@ -408,7 +412,19 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     Object.assign(cat, { y: 0, vy: 0, ground: true, hold: 0, squash: 0 });
     placeCat(30);
   }
+  function tryLandscape() {
+    // Android Chrome can lock landscape in full screen; iPhone Safari cannot, so this quietly does nothing there
+    try {
+      const el = document.documentElement, so = screen.orientation;
+      if (!touchFirst || window.innerHeight <= window.innerWidth || !el.requestFullscreen || !so || !so.lock || document.fullscreenElement) return;
+      el.requestFullscreen({ navigationUI: "hide" }).then(() => so.lock("landscape")).catch(() => {
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      });
+    } catch (e) { /* not supported */ }
+  }
+  function updateRotateTip() { $("rotateTip").hidden = !(touchFirst && window.innerHeight > window.innerWidth); }
   function startRun() {
+    tryLandscape();
     parts = [];
     Object.assign(st, { mode: "play", run: 0, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, p: 0.06, shake: 0, buffer: 0, leapK: 0, calm: 0, pan: -1, zone: null });
     resetWorld(); nextFish = 1.5; toast(null);
@@ -1059,10 +1075,13 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     const keep = scene ? scene.idx : 0, frac = scene ? cat.s / scene.len : 0;
     scene = buildScene(keep); nextScene = st.pan >= 0 ? buildScene(keep + 1) : null;
     placeCat(Math.max(24, frac * scene.len));
+    scene.obstacles = scene.obstacles.filter((o) => !(o.lane === cat.lane && (o.x - cat.x) * cat.dir > -60 && (o.x - cat.x) * cat.dir < Math.max(260, 0.6 * st.speed)));
+    updateRotateTip();
   });
 
   layout();
   resetWorld();
+  updateRotateTip();
   requestAnimationFrame((t) => { last = t; frame(t); });
 })();
 </script>
