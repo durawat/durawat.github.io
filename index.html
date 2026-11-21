@@ -162,7 +162,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   const sh = (h, extra = 0) => { let c = cache.get(h); if (!c) { c = hex(h); cache.set(h, c); } return rgb(mix(c, NIGHT_TINT, clamp(night * 0.5 + extra, 0, 1))); };
 
   // ---------- constants ----------
-  const GRAV = 2700, JUMP = 800, FISH_G = 1500;
+  const GRAV = 2700, FISH_G = 1500;
+  const JUMP = 800 * Math.sqrt(0.8);   // jump height scaled with the smaller cat (height grows with speed squared)
   const LEAP = 440;          // the cat's own forward speed in the air, whatever the running speed
   const PAN_TIME = 1.3;      // seconds the view takes to glide to the next screen
   const TUN_H = 78;          // tunnel height above the trail
@@ -549,8 +550,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     }
 
     // ----- collisions -----
-    const cx0 = cat.dir > 0 ? cat.x - 18 : cat.x - 32, cx1 = cat.dir > 0 ? cat.x + 32 : cat.x + 18;
-    const cy1 = cat.gy + cat.y - 4, cy0 = cat.gy + cat.y - 44;
+    const cx0 = cat.dir > 0 ? cat.x - 18 * CAT_S : cat.x - 32 * CAT_S, cx1 = cat.dir > 0 ? cat.x + 32 * CAT_S : cat.x + 18 * CAT_S;
+    const cy1 = cat.gy + cat.y - 4, cy0 = cat.gy + cat.y - 44 * CAT_S;
     if (cat.lane >= 0) {
       for (const o of scene.obstacles) {
         if (o.lane !== cat.lane) continue;
@@ -923,6 +924,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     ctx.restore();
   }
 
+  // ---------- the cat (the original tabby), drawn at CAT_S scale so it sits in proportion with the scenery ----------
+  const CAT_S = 0.8;
   function leg(x, y, ang, len, col, paw) {
     ctx.strokeStyle = col; ctx.lineWidth = 4.2; ctx.lineCap = "round";
     const kx = x + Math.sin(ang) * len * 0.55, ky = y + Math.cos(ang) * len * 0.55;
@@ -937,11 +940,11 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     const fur = sh("#8f8a84"), furD = sh("#6a655f"), stripe = sh("#57524d"), white = sh("#f4f1ea"), pink = sh("#e7a1a6"), eye = sh("#9cc84a");
     const hs = clamp(1 + cat.y / 220, 0.35, 1);
     ctx.fillStyle = `rgba(20,25,15,${(0.25 * hs).toFixed(3)})`;
-    ctx.beginPath(); ctx.ellipse(x + 4 * cat.dir, gy + 2, 28 * hs, 4.2 * hs, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + 4 * cat.dir * CAT_S, gy + 2, 28 * hs * CAT_S, 4.2 * hs, 0, 0, TAU); ctx.fill();
 
     ctx.save();
     ctx.translate(x, gy + cat.y);
-    ctx.scale(cat.dir, 1);
+    ctx.scale(cat.dir * CAT_S, CAT_S);
     const sq = cat.squash;
     ctx.scale(1 + sq * 0.12, 1 - sq * 0.12);
     if (!air && moving) ctx.translate(0, -Math.abs(Math.sin(ph)) * 1.5);
