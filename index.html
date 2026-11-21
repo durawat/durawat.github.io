@@ -48,6 +48,12 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
 .stats b{font-size:30px;font-weight:600;line-height:1;}
 .stats span{font-family:var(--body);font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.62;font-weight:700;}
 .newbest{display:inline-block;margin-top:12px;background:var(--warm);color:#fff;border-radius:999px;padding:4px 12px;font-family:var(--display);font-size:14px;font-weight:600;}
+.speed{margin-top:18px;text-align:left;}
+.speed label{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--display);font-weight:600;font-size:16px;}
+.speed output{font-family:var(--display);font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;}
+.speed input{width:100%;margin:10px 0 2px;accent-color:var(--accent);height:28px;cursor:pointer;}
+.speed input:focus-visible{outline:3px solid var(--warm);outline-offset:3px;border-radius:6px;}
+.speed-scale{display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.6;}
 .hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 32px);box-sizing:border-box;background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;line-height:1.4;text-align:center;box-shadow:0 2px 10px var(--shadow);pointer-events:none;}
 .hint kbd{font-family:var(--display);font-weight:600;font-size:12px;background:var(--cream);border:1px solid rgba(34,48,47,.25);border-bottom-width:2px;border-radius:6px;padding:1px 6px;}
 @media (max-width:420px){.chip{font-size:16px;padding:6px 11px;gap:10px}.btn-icon{width:32px;height:32px}.stats{gap:16px}}
@@ -73,6 +79,13 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
         <span><i style="background:#f2b632"></i>Golden fish +50</span>
         <span><i style="background:#b8743a"></i>Treat +5</span>
       </div>
+      <div class="slot">
+        <div class="speed" id="speedBox">
+          <label for="speed">Speed <output id="speedOut" for="speed">Normal</output></label>
+          <input type="range" id="speed" min="0.6" max="1.6" step="0.1" value="1" aria-describedby="speedOut">
+          <div class="speed-scale"><span>Slow</span><span>Fast</span></div>
+        </div>
+      </div>
       <button class="play" id="playBtn" type="button">Start the hunt</button>
     </div>
   </div>
@@ -86,6 +99,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
         <div><b id="oBest">0</b><span>Best</span></div>
       </div>
       <div id="newBest" class="newbest" hidden>New best!</div>
+      <div class="slot"></div>
       <div><button class="play" id="againBtn" type="button">Hunt again</button></div>
     </div>
   </div>
@@ -199,13 +213,33 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   }
 
   // ---------- flow ----------
+  // ---------- speed slider (shown only on the start and game-over cards) ----------
+  const speedEl = $("speed");
+  let speedMult = 1;
+  function speedName(v) {
+    if (v < 0.75) return "Slow";
+    if (v < 0.95) return "Relaxed";
+    if (v < 1.05) return "Normal";
+    if (v < 1.35) return "Quick";
+    return "Fast";
+  }
+  function setSpeed(v, save) {
+    speedMult = clamp(Math.round(v * 10) / 10, 0.6, 1.6);
+    speedEl.value = String(speedMult);
+    $("speedOut").textContent = speedName(speedMult) + " ×" + speedMult.toFixed(1);
+    if (save) { try { localStorage.setItem("whiskercreek.speed", String(speedMult)); } catch (e) {} }
+  }
+  try { setSpeed(parseFloat(localStorage.getItem("whiskercreek.speed")) || 1, false); } catch (e) { setSpeed(1, false); }
+  speedEl.addEventListener("input", () => setSpeed(parseFloat(speedEl.value), true));
+
   function show(id) {
     ["start", "over", "paused"].forEach((o) => { $(o).hidden = o !== id; });
+    if (id === "start" || id === "over") $(id).querySelector(".slot").appendChild($("speedBox"));
     $("hint").hidden = !(id === "start" || id === "over");
   }
   function startRun() {
     obstacles = []; treats = []; fishes = []; parts = []; rings = [];
-    Object.assign(st, { mode: "play", run: 0, speed: 380, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, p: 0.06, shake: 0, buffer: 0 });
+    Object.assign(st, { mode: "play", run: 0, speed: 380 * speedMult, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, p: 0.06, shake: 0, buffer: 0 });
     Object.assign(cat, { y: 0, vy: 0, ground: true, hold: 0, squash: 0 });
     nextObs = 650; nextTreat = 900; nextFish = 500;
     show(null); updateHud(true);
@@ -291,11 +325,11 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
       p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt;
     }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].life += dt; if (rings[i].life > 0.8) rings.splice(i, 1); }
-    if (st.mode === "ready") { st.dist += 110 * dt; cat.run += dt * 6; return; }
+    if (st.mode === "ready") { st.dist += 110 * speedMult * dt; cat.run += dt * 6 * speedMult; return; }
     if (st.mode !== "play") return;
 
     st.time += dt;
-    st.speed = Math.min(930, 380 + st.time * 9);
+    st.speed = Math.min(930, 380 + st.time * 9) * speedMult;
     const dx = st.speed * dt;
     st.dist += dx; st.run += dx;
     st.p = (0.06 + st.run / 36000) % 1;
@@ -856,6 +890,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   // ---------- input ----------
   const JUMP_KEYS = new Set(["Space", "ArrowUp", "KeyW"]);
   window.addEventListener("keydown", (e) => {
+    if (e.target === speedEl && e.code !== "Space") return; // let arrow keys move the slider
     if (JUMP_KEYS.has(e.code)) { e.preventDefault(); if (!e.repeat) press(); }
     else if (e.code === "KeyP" || e.code === "Escape") setPaused(st.mode === "play");
     else if (e.code === "KeyM") toggleMute();
