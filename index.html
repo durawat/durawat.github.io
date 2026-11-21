@@ -418,7 +418,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     placeCat(30);
   }
   function leaveFullscreen() {
-    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
     try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
   }
   function updateFsButtons() {
@@ -436,26 +435,9 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     Object.assign(st, { mode: "ready", run: 0, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, p: 0.06, shake: 0, buffer: 0, leapK: 0, calm: 0, pan: -1, zone: null });
     resetWorld(); updateHud(true); show("start");
   }
-  document.addEventListener("fullscreenchange", () => {
-    updateFsButtons();
-    if (!document.fullscreenElement) { try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {} }
-  });
+  document.addEventListener("fullscreenchange", updateFsButtons);
   function updateRotateTip() { $("rotateTip").hidden = !(touchFirst && window.innerHeight > window.innerWidth); }
-  function releaseOrientation() {
-    // let the screen follow the phone; also clears a landscape lock left by an earlier version
-    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
-  }
-  function enterFullscreen() {
-    // phones and tablets play full screen in whatever orientation they are held (no rotation, no lock);
-    // iPhone Safari does not allow this for web pages, so there it quietly stays in the normal view
-    try {
-      const el = document.documentElement;
-      if (!touchFirst || document.fullscreenElement || !el.requestFullscreen) return;
-      el.requestFullscreen({ navigationUI: "hide" }).then(releaseOrientation).catch(() => {});
-    } catch (e) { /* not supported */ }
-  }
   function startRun() {
-    enterFullscreen();
     parts = [];
     Object.assign(st, { mode: "play", run: 0, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, p: 0.06, shake: 0, buffer: 0, leapK: 0, calm: 0, pan: -1, zone: null });
     resetWorld(); nextFish = 1.5; toast(null);
@@ -1120,7 +1102,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   resetWorld();
   updateRotateTip();
   updateFsButtons();
-  releaseOrientation();
   requestAnimationFrame((t) => { last = t; frame(t); });
 })();
 </script>
