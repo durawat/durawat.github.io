@@ -41,6 +41,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
 .legend span{display:flex;align-items:center;gap:6px;}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:50%;}
 .play{margin-top:18px;font-family:var(--display);font-size:20px;font-weight:600;border:0;border-radius:999px;padding:12px 30px;background:var(--accent);color:#fff;cursor:pointer;box-shadow:0 4px 0 #1e5868;}
+.play.secondary{display:block;margin:12px auto 0;background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px rgba(34,48,47,.3);font-size:17px;padding:10px 24px;}
+.play.secondary:active{transform:none;}
 .play:active{transform:translateY(2px);box-shadow:0 2px 0 #1e5868;}
 .play:focus-visible,.btn-icon:focus-visible{outline:3px solid var(--warm);outline-offset:3px;}
 .stats{display:flex;justify-content:center;gap:22px;margin-top:16px;font-family:var(--display);font-variant-numeric:tabular-nums;}
@@ -70,6 +72,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
       <div class="chip"><span><small>Best</small><span id="best">0</span></span></div>
       <button class="btn-icon" id="mute" type="button" aria-label="Sound" aria-pressed="false" title="Sound (M)">&#9835;</button>
       <button class="btn-icon" id="pause" type="button" aria-label="Pause" title="Pause (P)">II</button>
+      <button class="btn-icon" id="exitFs" type="button" aria-label="Exit full screen" title="Exit full screen" hidden>&#10005;</button>
     </div>
   </div>
   <div class="overlay" id="start">
@@ -110,6 +113,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     <div class="card">
       <h2>Paused</h2>
       <button class="play" id="resumeBtn" type="button">Keep hunting</button>
+      <button class="play secondary" id="exitFsBtn" type="button" hidden>Exit full screen</button>
     </div>
   </div>
   <div class="hint" id="hint"></div>
@@ -422,6 +426,18 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
       });
     } catch (e) { /* not supported */ }
   }
+  function leaveFullscreen() {
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
+    try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
+  }
+  function updateFsButtons() {
+    const on = !!document.fullscreenElement;
+    $("exitFs").hidden = !on; $("exitFsBtn").hidden = !on;
+  }
+  document.addEventListener("fullscreenchange", () => {
+    updateFsButtons();
+    if (!document.fullscreenElement) { try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {} }
+  });
   function updateRotateTip() { $("rotateTip").hidden = !(touchFirst && window.innerHeight > window.innerWidth); }
   function startRun() {
     tryLandscape();
@@ -1069,6 +1085,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   $("pause").addEventListener("click", () => setPaused(st.mode === "play"));
   function toggleMute() { muted = !muted; $("mute").setAttribute("aria-pressed", String(muted)); }
   $("mute").addEventListener("click", toggleMute);
+  $("exitFs").addEventListener("click", () => { setPaused(true); leaveFullscreen(); });
+  $("exitFsBtn").addEventListener("click", leaveFullscreen);
   document.addEventListener("visibilitychange", () => { if (document.hidden) setPaused(true); });
   window.addEventListener("resize", () => {
     layout();
