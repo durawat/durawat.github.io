@@ -49,7 +49,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
 .stats div{display:flex;flex-direction:column;align-items:center;gap:2px;}
 .stats b{font-size:30px;font-weight:600;line-height:1;}
 .stats span{font-family:var(--body);font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.62;font-weight:700;}
-.rotate{margin:12px 0 0;font-size:13px;font-weight:700;color:var(--accent);}
 .newbest{display:inline-block;margin-top:12px;background:var(--warm);color:#fff;border-radius:999px;padding:4px 12px;font-family:var(--display);font-size:14px;font-weight:600;}
 .toast{position:absolute;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 16px;font-family:var(--display);font-weight:600;font-size:15px;box-shadow:0 2px 10px var(--shadow);pointer-events:none;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;}
 .speed{margin-top:18px;text-align:left;}
@@ -91,7 +90,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
           <div class="speed-scale"><span>Stroll</span><span>Fast</span></div>
         </div>
       </div>
-      <p class="rotate" id="rotateTip" hidden>Tip: turn your phone sideways for a wider trail with more to jump.</p>
       <button class="play" id="playBtn" type="button">Start the hunt</button>
     </div>
   </div>
@@ -436,8 +434,17 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     resetWorld(); updateHud(true); show("start");
   }
   document.addEventListener("fullscreenchange", updateFsButtons);
-  function updateRotateTip() { $("rotateTip").hidden = !(touchFirst && window.innerHeight > window.innerWidth); }
+  function enterFullscreen() {
+    // phones and tablets play full screen; no orientation commands, so the screen follows the phone's Auto-rotate.
+    // iPhone Safari does not allow full screen for web pages, so there it stays in the normal view.
+    try {
+      const el = document.documentElement;
+      if (!touchFirst || document.fullscreenElement || !el.requestFullscreen) return;
+      el.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    } catch (e) { /* not supported */ }
+  }
   function startRun() {
+    enterFullscreen();
     parts = [];
     Object.assign(st, { mode: "play", run: 0, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, p: 0.06, shake: 0, buffer: 0, leapK: 0, calm: 0, pan: -1, zone: null });
     resetWorld(); nextFish = 1.5; toast(null);
@@ -1091,7 +1098,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     scene = buildScene(keep); nextScene = st.pan >= 0 ? buildScene(keep + 1) : null;
     placeCat(Math.max(24, frac * scene.len));
     scene.obstacles = scene.obstacles.filter((o) => !(o.lane === cat.lane && (o.x - cat.x) * cat.dir > -60 && (o.x - cat.x) * cat.dir < Math.max(260, 0.6 * st.speed)));
-    updateRotateTip();
   }
   window.addEventListener("resize", onResize);
   // some phones report a rotation late in full screen: redraw again once the turn has finished
@@ -1100,7 +1106,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
 
   layout();
   resetWorld();
-  updateRotateTip();
   updateFsButtons();
   requestAnimationFrame((t) => { last = t; frame(t); });
 })();
