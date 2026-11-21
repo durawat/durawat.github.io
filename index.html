@@ -48,6 +48,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
 .stats b{font-size:30px;font-weight:600;line-height:1;}
 .stats span{font-family:var(--body);font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.62;font-weight:700;}
 .newbest{display:inline-block;margin-top:12px;background:var(--warm);color:#fff;border-radius:999px;padding:4px 12px;font-family:var(--display);font-size:14px;font-weight:600;}
+.toast{position:absolute;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 16px;font-family:var(--display);font-weight:600;font-size:15px;box-shadow:0 2px 10px var(--shadow);pointer-events:none;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;}
 .speed{margin-top:18px;text-align:left;}
 .speed label{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--display);font-weight:600;font-size:16px;}
 .speed output{font-family:var(--display);font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;}
@@ -82,8 +83,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
       <div class="slot">
         <div class="speed" id="speedBox">
           <label for="speed">Speed <output id="speedOut" for="speed">Normal</output></label>
-          <input type="range" id="speed" min="0.6" max="1.6" step="0.1" value="1" aria-describedby="speedOut">
-          <div class="speed-scale"><span>Slow</span><span>Fast</span></div>
+          <input type="range" id="speed" min="0.3" max="1.6" step="0.1" value="1" aria-describedby="speedOut">
+          <div class="speed-scale"><span>Stroll</span><span>Fast</span></div>
         </div>
       </div>
       <button class="play" id="playBtn" type="button">Start the hunt</button>
@@ -110,6 +111,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     </div>
   </div>
   <div class="hint" id="hint"></div>
+  <div class="toast" id="toast" role="status" hidden></div>
 </div>
 <script>
 (() => {
@@ -174,8 +176,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   const GRAV = 2700, JUMP = 930, FISH_G = 1500;
   const cat = { x: 110, y: 0, vy: 0, ground: true, hold: 0, run: 0, squash: 0 };
   const st = { mode: "ready", dist: 0, run: 0, speed: 380, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, best: 0, p: 0.06, shake: 0, overAt: 0, buffer: 0 };
-  let obstacles = [], treats = [], fishes = [], parts = [], rings = [];
-  let nextObs = 700, nextTreat = 1000, nextFish = 600, input = false, cause = "puddle";
+  let obstacles = [], treats = [], fishes = [], parts = [], rings = [], features = [];
+  let nextObs = 700, nextTreat = 1000, nextFish = 600, nextFeature = 2600, input = false, cause = "puddle";
 
   try { st.best = parseInt(localStorage.getItem("whiskercreek.best") || "0", 10) || 0; } catch (e) { st.best = 0; }
   $("best").textContent = st.best;
@@ -188,10 +190,10 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   const flutters = Array.from({ length: 4 }, (_, i) => ({ x: hash(i + 700) * 800, y: hash(i + 710), ph: hash(i + 720) * 6.28, c: ["#f6d04d", "#ffffff", "#f39ab4", "#9ec9ff"][i] }));
 
   const LAYERS = {
-    far:   { f: 0.05, base: -250, w: [[72, 0.0019, 0.3, 1], [32, 0.0051, 1.7, 1], [10, 0.014, 4, 0]] },
-    far2:  { f: 0.12, base: -190, w: [[50, 0.0029, 2.1, 1], [20, 0.0075, 0.4, 0], [7, 0.02, 3, 0]] },
-    hill:  { f: 0.24, base: -128, w: [[30, 0.0042, 1.2, 0], [14, 0.011, 2.6, 0]] },
-    ridge: { f: 0.42, base: -88,  w: [[12, 0.006, 0.5, 0], [6, 0.017, 3.3, 0]] },
+    far:   { f: 0.035, base: -250, w: [[72, 0.0019, 0.3, 1], [32, 0.0051, 1.7, 1], [10, 0.014, 4, 0]] },
+    far2:  { f: 0.08, base: -190, w: [[50, 0.0029, 2.1, 1], [20, 0.0075, 0.4, 0], [7, 0.02, 3, 0]] },
+    hill:  { f: 0.16, base: -128, w: [[30, 0.0042, 1.2, 0], [14, 0.011, 2.6, 0]] },
+    ridge: { f: 0.3, base: -88,  w: [[12, 0.006, 0.5, 0], [6, 0.017, 3.3, 0]] },
   };
   function ry(L, wx) {
     let y = GY + L.base;
@@ -217,6 +219,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   const speedEl = $("speed");
   let speedMult = 1;
   function speedName(v) {
+    if (v < 0.45) return "Stroll";
     if (v < 0.75) return "Slow";
     if (v < 0.95) return "Relaxed";
     if (v < 1.05) return "Normal";
@@ -224,7 +227,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     return "Fast";
   }
   function setSpeed(v, save) {
-    speedMult = clamp(Math.round(v * 10) / 10, 0.6, 1.6);
+    speedMult = clamp(Math.round(v * 10) / 10, 0.3, 1.6);
     speedEl.value = String(speedMult);
     $("speedOut").textContent = speedName(speedMult) + " ×" + speedMult.toFixed(1);
     if (save) { try { localStorage.setItem("whiskercreek.speed", String(speedMult)); } catch (e) {} }
@@ -238,13 +241,15 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     $("hint").hidden = !(id === "start" || id === "over");
   }
   function startRun() {
-    obstacles = []; treats = []; fishes = []; parts = []; rings = [];
+    obstacles = []; treats = []; fishes = []; parts = []; rings = []; features = [];
+    st.zone = null; st.calm = 0; toast(null);
     Object.assign(st, { mode: "play", run: 0, speed: 380 * speedMult, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, p: 0.06, shake: 0, buffer: 0 });
     Object.assign(cat, { y: 0, vy: 0, ground: true, hold: 0, squash: 0 });
-    nextObs = 650; nextTreat = 900; nextFish = 500;
+    nextObs = 650; nextTreat = 900; nextFish = 500; nextFeature = 2600;
     show(null); updateHud(true);
   }
   function gameOver() {
+    toast(null);
     st.mode = "over"; st.overAt = performance.now(); st.shake = reduceMotion ? 0 : 12;
     tone(520, 140, 0.45, "triangle", 0.09);
     if (cause === "puddle") burst(cat.x + 6, GY - 2, 16, ["#cfe8f2", "#ffffff", "#8fc3d6"], 260);
@@ -272,7 +277,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   function jump() {
     cat.vy = -JUMP; cat.ground = false; cat.hold = 0; st.buffer = 0;
     tone(420, 820, 0.12, "triangle", 0.07);
-    burst(cat.x - 6, GY, 5, ["#c9a679", "#e6cfa6"], 90, true);
+    burst(cat.x - 6, GY + cat.y, 5, ["#c9a679", "#e6cfa6"], 90, true);
   }
 
   // ---------- particles ----------
@@ -315,6 +320,37 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     if (x < VW + 20) splash(x, y0);
   }
 
+  // ---------- boardwalks and tunnels ----------
+  const BH = 26, RAMP = 80, TUN_H = 104;
+  function groundOff(x) {            // negative = raised boardwalk under x
+    for (const f of features) {
+      if (f.type !== "board" || x < f.x || x > f.x + f.w) continue;
+      return -BH * Math.min(1, (x - f.x) / RAMP, (f.x + f.w - x) / RAMP);
+    }
+    return 0;
+  }
+  function inTunnel(x) { return features.some((f) => f.type === "tunnel" && x > f.x + 10 && x < f.x + f.w - 10); }
+  function tunnelNear() { return features.some((f) => f.type === "tunnel" && f.x < VW + 700 && f.x + f.w > cat.x - 80); }
+  function spawnFeature() {
+    const type = Math.random() < 0.55 ? "board" : "tunnel";
+    const w = type === "board" ? 2600 : 900;
+    const f = { type, x: VW + 60, w };
+    features.push(f);
+    nextObs = Math.max(nextObs, w + 480);      // nothing to dodge on a boardwalk or in a tunnel
+    nextTreat = Math.max(nextTreat, w + 300);
+    // treats at head height: the cat picks them up without jumping
+    const h = (type === "board" ? BH : 0) + 26, step = type === "board" ? 110 : 90;
+    for (let x = f.x + RAMP + 60; x < f.x + w - RAMP - 40; x += step) treats.push({ x, h, ph: x * 0.01 });
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    const el = $("toast");
+    clearTimeout(toastTimer);
+    if (!msg) { el.hidden = true; return; }
+    el.textContent = msg; el.hidden = false;
+    toastTimer = setTimeout(() => { el.hidden = true; }, 3500);
+  }
+
   // ---------- update ----------
   function update(dt) {
     cat.squash = Math.max(0, cat.squash - dt * 5);
@@ -329,20 +365,29 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     if (st.mode !== "play") return;
 
     st.time += dt;
-    st.speed = Math.min(930, 380 + st.time * 9) * speedMult;
+    st.calm += ((groundOff(cat.x) < -1 ? 1 : 0) - st.calm) * Math.min(1, dt * 1.5);
+    st.speed = Math.min(930, 380 + st.time * 9) * speedMult * (1 - 0.35 * st.calm);
     const dx = st.speed * dt;
     st.dist += dx; st.run += dx;
     st.p = (0.06 + st.run / 36000) % 1;
-    for (const r of rings) r.x -= dx * 0.42;
+    for (const r of rings) r.x -= dx * 0.3;
 
     // cat physics: holding the jump softens gravity while rising
     let g = GRAV;
     if (input && cat.vy < 0 && cat.hold < 0.26) { cat.hold += dt; g = GRAV * 0.42; }
-    cat.vy += g * dt; cat.y += cat.vy * dt;
-    if (cat.y >= 0) {
-      if (!cat.ground) { cat.squash = 1; burst(cat.x, GY, 6, ["#c9a679", "#e6cfa6"], 110, true); }
-      cat.y = 0; cat.vy = 0; cat.ground = true;
-      if (st.buffer > 0) jump();
+    const g0 = groundOff(cat.x);
+    if (cat.ground) { cat.y = g0; cat.vy = 0; }
+    else {
+      // a tunnel just ahead: bring a high jump down so the cat ducks in under the roof
+      const gap = features.reduce((m, f) => f.type === "tunnel" ? Math.min(m, f.x - 24 - (cat.x + 40)) : m, Infinity);
+      if (gap > -30 && gap < 180 && cat.y < -40) cat.vy = Math.max(cat.vy, 0) + 5200 * dt;
+      cat.vy += g * dt; cat.y += cat.vy * dt;
+      if (inTunnel(cat.x + 10) && cat.y < -40) { cat.y = -40; if (cat.vy < 0) cat.vy = 0; }
+      if (cat.y >= g0) {
+        cat.squash = 1; burst(cat.x, GY + g0, 6, ["#c9a679", "#e6cfa6"], 110, true);
+        cat.y = g0; cat.vy = 0; cat.ground = true;
+        if (st.buffer > 0) jump();
+      }
     }
     st.buffer = Math.max(0, st.buffer - dt);
     cat.run += dt * (st.speed / 36);
@@ -353,7 +398,16 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     nextTreat -= dx;
     if (nextTreat <= 0) { spawnTreats(); nextTreat = rand(1000, 2000); }
     nextFish -= dx;
-    if (nextFish <= 0) { spawnFish(); nextFish = rand(900, 1900); }
+    if (nextFish <= 0) { if (!tunnelNear()) spawnFish(); nextFish = rand(900, 1900); }
+    nextFeature -= dx;
+    if (nextFeature <= 0 && !features.length && !obstacles.some((o) => o.x + o.w > VW - 120)) { spawnFeature(); nextFeature = rand(4200, 7000); }
+    for (let i = features.length - 1; i >= 0; i--) { features[i].x -= dx; if (features[i].x + features[i].w < -120) features.splice(i, 1); }
+    const zone = groundOff(cat.x) < -1 ? "board" : inTunnel(cat.x) ? "tunnel" : null;
+    if (zone !== st.zone) {
+      st.zone = zone;
+      if (zone === "board") toast("Boardwalk \u00b7 sit back and enjoy the view");
+      else if (zone === "tunnel") toast("Cool and quiet in the tunnel");
+    }
 
     // collide
     const cx0 = cat.x - 18, cx1 = cat.x + 32, cy1 = GY + cat.y - 4, cy0 = GY + cat.y - 44;
@@ -557,20 +611,20 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     if (gx > -50 && gx < VW + 50 && gStrength > 0.02) {
       for (let j = 0; j < 14; j++) {
         const y = RT + 6 + j * ((RB - RT - 10) / 14);
-        const w = 8 + j * 1.6, a = gStrength * (0.4 + 0.6 * Math.abs(Math.sin(t * 3 + j * 1.7)));
+        const w = 8 + j * 1.6, a = gStrength * (0.4 + 0.6 * Math.abs(Math.sin(t * 1.2 + j * 1.7)));
         ctx.fillStyle = sunUp > 0 ? `rgba(255,236,190,${a.toFixed(3)})` : `rgba(225,232,255,${a.toFixed(3)})`;
-        ctx.fillRect(gx - w / 2 + Math.sin(t * 2 + j) * 4, y, w, 1.6);
+        ctx.fillRect(gx - w / 2 + Math.sin(t * 0.8 + j) * 2, y, w, 1.6);
       }
     }
 
     // ripples drifting downstream
-    ctx.strokeStyle = `rgba(255,255,255,${(0.28 - night * 0.14).toFixed(3)})`; ctx.lineWidth = 1.3; ctx.lineCap = "round";
+    ctx.strokeStyle = `rgba(255,255,255,${(0.2 - night * 0.1).toFixed(3)})`; ctx.lineWidth = 1.3; ctx.lineCap = "round";
     ctx.beginPath();
     const rows = 7;
     for (let r = 0; r < rows; r++) {
       const y = RT + 10 + r * ((RB - RT - 14) / (rows - 1));
-      const f = 0.42 + r * 0.06, sp = 70 - r * 4;
-      const off = st.dist * f + t * 26;
+      const f = 0.3 + r * 0.05, sp = 70 - r * 4;
+      const off = st.dist * f + t * 12;
       for (let i = Math.floor(off / sp) - 1, e = Math.floor((off + VW) / sp) + 1; i <= e; i++) {
         if (hash(i * 3.1 + r) < 0.35) continue;
         const x = i * sp - off + hash(i + r * 9) * 30, w = 8 + hash(i + r) * 14;
@@ -580,7 +634,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     ctx.stroke();
 
     // lily pads near the near bank
-    const lf = 0.62, loff = st.dist * lf, lsp = 120;
+    const lf = 0.5, loff = st.dist * lf, lsp = 120;
     for (let i = Math.floor(loff / lsp) - 1, e = Math.floor((loff + VW) / lsp) + 1; i <= e; i++) {
       if (hash(i + 800) < 0.55) continue;
       const x = i * lsp - loff + hash(i + 801) * 60, y = RB - 12 - hash(i + 802) * 18, r = 8 + hash(i + 803) * 5;
@@ -749,6 +803,95 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     ctx.restore();
   }
 
+  function drawFeatureBack(f, t) {
+    if (f.x + f.w + 90 < -20 || f.x - 90 > VW + 20) return;
+    const a = Math.max(f.x, -20), b = Math.min(f.x + f.w, VW + 20);
+    if (f.type === "board") {
+      if (b <= a) return;
+      const wood = sh("#a8754a"), woodD = sh("#734b2e"), woodL = sh("#cf9c6c");
+      const fa = f.x + RAMP, fb = f.x + f.w - RAMP;
+      const ra = Math.max(fa, -20), rb = Math.min(fb, VW + 20);
+      if (rb > ra) {   // railing on the river side
+        ctx.strokeStyle = woodD; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath();
+        for (let px = fa + Math.max(0, Math.ceil((ra - fa) / 70)) * 70; px <= rb; px += 70) { ctx.moveTo(px, GY - BH - 2); ctx.lineTo(px, GY - BH - 34); }
+        ctx.moveTo(ra, GY - BH - 32); ctx.lineTo(rb, GY - BH - 32);
+        ctx.moveTo(ra, GY - BH - 18); ctx.lineTo(rb, GY - BH - 18);
+        ctx.stroke();
+      }
+      ctx.fillStyle = woodD;   // posts
+      for (let px = f.x + 40 + Math.max(0, Math.ceil((a - f.x - 40) / 60)) * 60; px <= b; px += 60) {
+        const top = GY + groundOff(px); if (top > GY - 6) continue;
+        ctx.fillRect(px - 3, top + 4, 6, GY + 6 - top);
+      }
+      ctx.fillStyle = wood;    // deck following the ramps
+      ctx.beginPath(); ctx.moveTo(a, GY + groundOff(a));
+      for (let x = a; x <= b; x += 8) ctx.lineTo(x, GY + groundOff(x));
+      ctx.lineTo(b, GY + groundOff(b));
+      for (let x = b; x >= a; x -= 8) ctx.lineTo(x, GY + groundOff(x) + 8);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = woodL; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(a, GY + groundOff(a) + 1);
+      for (let x = a; x <= b; x += 8) ctx.lineTo(x, GY + groundOff(x) + 1);
+      ctx.stroke();
+      ctx.strokeStyle = woodD; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let px = f.x + Math.max(0, Math.ceil((a - f.x) / 16)) * 16; px <= b; px += 16) { const y = GY + groundOff(px); ctx.moveTo(px, y + 2); ctx.lineTo(px, y + 8); }
+      ctx.stroke();
+      return;
+    }
+    // tunnel: a grassy hill with a stone-lined passage
+    const L = f.x - 80, Rr = f.x + f.w + 80, top = GY - TUN_H;
+    const hillY = (x) => { const k = (x - L) / (Rr - L); return top - 22 - Math.sin(k * Math.PI) * 46 - Math.sin(k * 9) * 4; };
+    ctx.fillStyle = rgb(mix(pal.hill, pal.grass, 0.35));
+    ctx.beginPath(); ctx.moveTo(L, GY + 4);
+    for (let x = L; x <= Rr; x += 10) ctx.lineTo(x, hillY(x));
+    ctx.lineTo(Rr, GY + 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = rgb(mix(pal.tree, pal.grass, 0.3));
+    for (let i = 0; i < 5; i++) {
+      const x = L + (Rr - L) * (0.15 + i * 0.17), y = hillY(x);
+      ctx.beginPath(); ctx.arc(x, y + 2, 10 + (i % 2) * 5, 0, 6.283); ctx.arc(x + 9, y + 4, 8, 0, 6.283); ctx.fill();
+    }
+    if (b > a) {
+      ctx.fillStyle = sh("#45434a", 0.15); ctx.fillRect(a, top, b - a, TUN_H + 4);
+      ctx.strokeStyle = sh("#36343a", 0.15); ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let r = 0; r < 6; r++) {
+        const y = top + 8 + r * 16, offx = r % 2 ? 0 : 18;
+        ctx.moveTo(a, y); ctx.lineTo(b, y);
+        for (let px = f.x + offx + Math.max(0, Math.ceil((a - f.x - offx) / 36)) * 36; px <= b; px += 36) { ctx.moveTo(px, y); ctx.lineTo(px, y + 16); }
+      }
+      ctx.stroke();
+      for (let px = f.x + 110; px < f.x + f.w - 60; px += 200) {   // lanterns
+        if (px < -70 || px > VW + 70) continue;
+        const ly = top + 30, flick = 0.85 + 0.15 * Math.sin(t * 6 + px);
+        const g = ctx.createRadialGradient(px, ly, 2, px, ly, 70);
+        g.addColorStop(0, `rgba(255,200,110,${(0.55 * flick).toFixed(3)})`); g.addColorStop(1, "rgba(255,200,110,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, ly, 70, 0, 6.283); ctx.fill();
+        ctx.fillStyle = "#2a2622"; ctx.fillRect(px - 1, top, 2, 24);
+        ctx.fillStyle = "#ffd27a"; ctx.beginPath(); ctx.arc(px, ly, 5, 0, 6.283); ctx.fill();
+      }
+    }
+  }
+  function drawFeatureFront(f) {
+    if (f.type !== "tunnel" || f.x + f.w + 30 < -20 || f.x - 30 > VW + 20) return;
+    const top = GY - TUN_H, a = Math.max(f.x, -20), b = Math.min(f.x + f.w, VW + 20);
+    if (b > a) { ctx.fillStyle = "rgba(15,14,22,.28)"; ctx.fillRect(a, top, b - a, TUN_H + 2); }
+    const stone = sh("#8e8a83"), stoneD = sh("#6c6862");
+    const ea = Math.max(f.x - 24, -30), eb = Math.min(f.x + f.w + 24, VW + 30);
+    ctx.fillStyle = stone; ctx.fillRect(ea, top - 14, eb - ea, 16);
+    ctx.strokeStyle = stoneD; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (let px = f.x - 24 + Math.max(0, Math.ceil((ea - f.x + 24) / 28)) * 28; px < eb; px += 28) { ctx.moveTo(px, top - 14); ctx.lineTo(px, top + 2); }
+    ctx.stroke();
+    for (const px of [f.x - 24, f.x + f.w]) {
+      if (px < -40 || px > VW + 40) continue;
+      ctx.fillStyle = stone; ctx.fillRect(px, top - 14, 24, TUN_H + 18);
+      ctx.strokeStyle = stoneD; ctx.beginPath();
+      for (let y = top; y < GY; y += 18) { ctx.moveTo(px, y); ctx.lineTo(px + 24, y); }
+      ctx.stroke();
+    }
+  }
+
   function leg(x, y, ang, len, col, paw) {
     ctx.strokeStyle = col; ctx.lineWidth = 4.2; ctx.lineCap = "round";
     const kx = x + Math.sin(ang) * len * 0.55, ky = y + Math.cos(ang) * len * 0.55;
@@ -763,9 +906,10 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     const bob = air ? 0 : -Math.abs(Math.sin(ph)) * 2;
     const fur = sh("#8f8a84"), furD = sh("#6a655f"), stripe = sh("#57524d"), white = sh("#f4f1ea"), pink = sh("#e7a1a6"), eye = sh("#9cc84a");
 
-    const hs = clamp(1 + cat.y / 220, 0.35, 1);
+    const gy0 = groundOff(cat.x);
+    const hs = clamp(1 + (cat.y - gy0) / 220, 0.35, 1);
     ctx.fillStyle = `rgba(20,25,15,${(0.25 * hs).toFixed(3)})`;
-    ctx.beginPath(); ctx.ellipse(cat.x + 4, GY + 2, 28 * hs, 4.2 * hs, 0, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cat.x + 4, GY + gy0 + 2, 28 * hs, 4.2 * hs, 0, 0, 6.283); ctx.fill();
 
     ctx.save();
     ctx.translate(cat.x, feet);
@@ -865,10 +1009,12 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     drawNearBank();
     drawButterflies(t, dt);
     drawPath();
+    for (const f of features) drawFeatureBack(f, t);
     for (const o of obstacles) drawObstacle(o, t);
     for (const b of treats) drawTreat(b, t);
     for (const f of fishes) drawFish(f, t);
     drawCat(t);
+    for (const f of features) drawFeatureFront(f);
     for (const p of parts) {
       ctx.globalAlpha = 1 - p.life / p.max;
       ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
