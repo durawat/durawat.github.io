@@ -416,16 +416,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     Object.assign(cat, { y: 0, vy: 0, ground: true, hold: 0, squash: 0 });
     placeCat(30);
   }
-  function tryLandscape() {
-    // Android Chrome can lock landscape in full screen; iPhone Safari cannot, so this quietly does nothing there
-    try {
-      const el = document.documentElement, so = screen.orientation;
-      if (!touchFirst || window.innerHeight <= window.innerWidth || !el.requestFullscreen || !so || !so.lock || document.fullscreenElement) return;
-      el.requestFullscreen({ navigationUI: "hide" }).then(() => so.lock("landscape")).catch(() => {
-        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
-      });
-    } catch (e) { /* not supported */ }
-  }
   function leaveFullscreen() {
     try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
     try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
@@ -439,8 +429,17 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
     if (!document.fullscreenElement) { try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {} }
   });
   function updateRotateTip() { $("rotateTip").hidden = !(touchFirst && window.innerHeight > window.innerWidth); }
+  function enterFullscreen() {
+    // phones and tablets play full screen in whatever orientation they are held (no rotation, no lock);
+    // iPhone Safari does not allow this for web pages, so there it quietly stays in the normal view
+    try {
+      const el = document.documentElement;
+      if (!touchFirst || document.fullscreenElement || !el.requestFullscreen) return;
+      el.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    } catch (e) { /* not supported */ }
+  }
   function startRun() {
-    tryLandscape();
+    enterFullscreen();
     parts = [];
     Object.assign(st, { mode: "play", run: 0, time: 0, fish: 0, treats: 0, bonus: 0, score: 0, p: 0.06, shake: 0, buffer: 0, leapK: 0, calm: 0, pan: -1, zone: null });
     resetWorld(); nextFish = 1.5; toast(null);
@@ -1100,6 +1099,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-sele
   layout();
   resetWorld();
   updateRotateTip();
+  updateFsButtons();
   requestAnimationFrame((t) => { last = t; frame(t); });
 })();
 </script>
